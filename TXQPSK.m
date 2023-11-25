@@ -30,7 +30,7 @@ preamble=[cp; cp; cp; cp];  % constrauct the preamble
 %
 % source
 %
-info_bits=file2bin('testfile.gif')';      % convert source to bits
+info_bits=file2bin('testfile.txt')';      % convert source to bits
 %
 % generate transmit signal
 %     

@@ -15,14 +15,15 @@ function y = grey_map_decode(x) % note: this is different in new version of book
     b01 = -1 + 1j;
     b11 = 1 + 1j;
     b10 = 1 - 1j;
+    x_round = round(x);
     y = zeros(2,1);
-    if(x == b00)
+    if(x_round == b00)
         y = [0;0];
-    elseif(x == b01)
+    elseif(x_round == b01)
         y = [0;1];
-    elseif(x == b11)
+    elseif(x_round == b11)
         y = [1;1];
-    elseif(x == b10)
+    elseif(x_round == b10)
         y = [1;0];
     end
 
