@@ -1,0 +1,17 @@
+T=4;tau=0.8;T0=0.05*T;Tmtau=T-tau;
+f=[-50:0.1/Tmtau:50];
+G=abs(sinc(f*T).*cos(pi*f*T0)./(1-4*T0^2*f.^2)).^2;
+G1=G;
+G2=G;
+% for k=[1:26]
+%     G1=[zeros(1,10) G1(1:end-10)];
+%     G2=[G2(11:end) zeros(1,10)];
+%     G=G+G1+G2;
+% end
+G=10*log10(G);
+%G=conv(G,ones(1,11)/11);G=G(6:end-5);
+figure(1),plot(f,G)
+axis([-50 50 -100 10])
+h=10*log10(abs(cos(pi*f*T0)./(1-4*T0^2*f.^2)).^2);
+figure(2),plot(f,h)
+axis([-50 50 -100 10])

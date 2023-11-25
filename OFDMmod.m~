@@ -1,0 +1,14 @@
+%
+% Modulator part of an OFDM transceiver
+%
+function stime=OFDMmod(sfreq,N,Nactive,L)
+stime=[];
+for k=1:Nactive:length(sfreq)
+    a1=sfreq(k:k+Nactive-1);
+    a=zeros(N,1);
+    a(2:Nactive/2+1)=a1(1:Nactive/2);
+    a(end-Nactive/2+1:end)=a1(Nactive/2+1:end);
+    a=ifft(sfreq(k:k+N-1)); % modulate/convert to time-domain
+    a=[a(N-L+1:end); a];    % add CP
+    stime=[stime; a];       % concatenate symbols
+end
