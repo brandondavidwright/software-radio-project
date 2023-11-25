@@ -26,5 +26,4 @@ function y = grey_map_decode(x) % note: this is different in new version of book
     elseif(x_round == b10)
         y = [1;0];
     end
-
 end
