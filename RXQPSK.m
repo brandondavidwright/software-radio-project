@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF1.mat')
+load('xRF2.mat')
 
 %-----start of part 1-----
 
@@ -52,13 +52,11 @@ eye_pattern(y);
 % extract data symbols from payload and convert to bit stream
 preamble = [cp; cp; cp; cp];
 N = length(cp);
-%preamble_end = find_preamble_start(xBBd, preamble);
-payload_start = find_payload_start(xBBd, cp);
+%payload_start = find_payload_start(xBBd, cp);
 
-%payload = xBBd(preamble_end + length(preamble):end);
-payload = xBBd(payload_start:end);
-figure
-eye_pattern(payload)
+%payload_p1 = xBBd(payload_start:end);
+%figure
+%eye_pattern(payload_p1)
 
 %bits = QPSK2bits(payload);
 
@@ -88,12 +86,12 @@ title("xBBe")
 N = length(cp);
 payload_start = find_payload_start(xBBe, cp);
 
-payload = xBBe(payload_start:end);
+payload_p2 = xBBe(payload_start:end);
 figure
-eye_pattern(payload);
+eye_pattern(payload_p2);
 title("payload part of xBBe")
 
-bits = QPSK2bits(payload); % TODO fix this
+bits = QPSK2bits(payload_p2); % TODO fix this
 
 % save bits to file
 bin2file(bits', "transmitted_file.txt");
@@ -108,14 +106,14 @@ function p1 =  find_rho1(CBB, Tb)
     end
 end
 
-function index = find_preamble_start(y, preamble)
+function index = find_preamble_start(y, cp)
     for i = 1:1:length(y)
-        if i+length(preamble)-1 < length(y)
-            correlations(i) = corr(real(y(i:i+length(preamble)-1)), real(preamble));
+        if i+length(cp)-1 < length(y)
+            correlations(i) = corr(real(y(i:i+length(cp)-1)), real(cp));
         end
     end
 
-    index = find(correlations==max(correlations));
+    index = find(correlations>0.9, 1, "first");
 end
 
 function index = find_payload_start(y, cp)
@@ -143,9 +141,10 @@ function ryy = autocorrelation(y, N)
 end
 
 function w = ssce(y, s, N)
-    yi = fliplr(y);
+    % yi = flipud(y); %TA said to flip
+    yi = y;
     mu = 0.005;
-    iterations = 1000000;
+    iterations = 100000;
     w = zeros(32,1);
     
     for i = 1:1:iterations
@@ -156,15 +155,18 @@ function w = ssce(y, s, N)
 end
 
 function s2 = equalizer(y, w, N)
-    s2 = zeros(1);
+    % w_row = reshape(w,1,N);
+    w_row = w;
+    overshoot = N-(mod(length(y),N)+1); %calculate this
     for n = 1:1:length(y)
         if n + N-1 > length(y)
-            s2(n:length(y)) = y(n:length(y));
+            s2(n:length(y)) = w_row(1:mod(length(y),N)+overshoot)'*y(n:length(y));
+            overshoot = overshoot - 1;
         else
-            s2(n:n+N-1) = w'*y(n:n+N-1);
+            s2(n:n+N-1) = w_row'*y(n:n+N-1);
         end
     end
-    s2 = s2';
+    s2 = reshape(s2,length(s2),1);
 end
 
 function eye_pattern(y)
