@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF2.mat')
+load('xRF1.mat')
 
 %-----start of part 1-----
 
@@ -27,29 +27,31 @@ figure
 spec_analysis(y,fs);
 title("Filtered baseband signal");
 
-% sample the signal in timing phase that maximizes signal power
-% 10.1
-[CBB, f] = spec_analysis(y,fs);
+%--remove timing phase for part 3
+% % sample the signal in timing phase that maximizes signal power
+% % 10.1
+% [CBB, f] = spec_analysis(y,fs);
+% 
+% rho0 = 0;
+% % ***is this the right way to delay?
+% rho1 = find_rho1(CBB, Tb);
+% 
+% % calculate timing recovery cost function
+% rhot = rho0 + 2*abs(rho1)*cos(2*pi/Tb*t + angle(rho1)); % 10.12
+% sample_indeces = find(rhot==max(rhot));
+% 
+% % figure this part out
+% xBBd = y(sample_indeces); % max power
 
-rho0 = 0;
-% ***is this the right way to delay?
-rho1 = find_rho1(CBB, Tb);
-
-% calculate timing recovery cost function
-rhot = rho0 + 2*abs(rho1)*cos(2*pi/Tb*t + angle(rho1)); % 10.12
-sample_indeces = find(rhot==max(rhot));
-
-% figure this part out
-xBBd = y(sample_indeces); % max power
+%------start part 3------
+M = 2;
+L = 100/M;
+xBBd = decimator(y,L); % decimated at twice the symbol rate
+% ***how do we vary timing phase?
 
 % look at eye pattern
 figure
 eye_pattern(y);
-title("eye pattern of y")
-
-figure
-eye_pattern(y)
-title("eye pattern of xBBd")
 
 % identify preamble and extract payload
 
@@ -68,7 +70,7 @@ N = length(cp);
 %-------end of part 1--------
 %----------------------------
 %-------start of part 2------
-abs_ryy = abs(autocorrelation(xBBd, N-1)); % N = 31
+abs_ryy = abs(autocorrelation(xBBd, M*N-1)); % N = 31
 figure
 plot(abs_ryy)
 xlabel("n")
@@ -77,22 +79,22 @@ title("Autocorrelation");
 
 ryy_maxima_indeces = find(islocalmax(abs_ryy)==1);
 %**** TODO - which peak should I pick? *****
- %****find top three, pick one
 % does cp = s?
-s = xBBd(ryy_maxima_indeces(4):ryy_maxima_indeces(4)+N-1);
-w = estimate_tap_weigths(s, cp, N);
+s = xBBd(ryy_maxima_indeces(4):ryy_maxima_indeces(4)+M*N-1);
+w = esimte_tap_weights(s, cp, N, M);
 %center largest tap weight
 w = circshift(w, N/2 - find(w==max(w)));
 
-xBBe = equalizer(xBBd, w, N);
+xBBe = fractionally_spaced_eq(xBBd, w, M*N);
 figure
 eye_pattern(xBBe);
 title("xBBe")
 
 N = length(cp);
-payload_start = find_payload_start(xBBe, cp);
+% payload_start = find_preamble_start(xBBe,preamble,M)+M*length(preamble);
+payload_start = find_payload_start(xBBe, cp, M);
 
-payload_p2 = xBBe(payload_start:end);
+payload_p2 = decimator(xBBe(payload_start:end),2);
 figure
 eye_pattern(payload_p2);
 title("payload part of xBBe")
@@ -112,25 +114,25 @@ function p1 =  find_rho1(CBB, Tb)
     end
 end
 
-function index = find_preamble_start(y, cp)
+function index = find_preamble_start(y, cp, M)
     for i = 1:1:length(y)
-        if i+length(cp)-1 < length(y)
-            correlations(i) = corr(real(y(i:i+length(cp)-1)), real(cp));
+        if i+M*length(cp)-1 < length(y)
+            correlations(i) = corr(real(y(i:M:i+M*length(cp)-1)), real(cp));
         end
     end
 
-    index = find(correlations>0.9, 1, "first");
+    index = find(correlations==max(correlations));
 end
 
-function index = find_payload_start(y, cp)
+function index = find_payload_start(y, cp, M)
     for i = 1:1:length(y)
-        if i+length(cp)-1 < length(y)
-            correlations(i) = corr(real(y(i:i+length(cp)-1)), real(cp));
+        if i+M*length(cp)-1 < length(y)
+            correlations(i) = corr(real(y(i:M:i+M*length(cp)-1)), real(cp));
         end
     end
     start_last_cp = find(correlations>0.9, 1, "last");
     
-    index = start_last_cp+length(cp);
+    index = start_last_cp+M*length(cp)-1;
 end
 
 function ryy = autocorrelation(y, N)
@@ -146,23 +148,38 @@ function ryy = autocorrelation(y, N)
     end
 end
 
-function w = estimate_tap_weigths(y, s, N)
-    % yi = flipud(y); %TA said to flip
+function w = esimte_tap_weights(y, s, N, M)
+    % yi = flipud(y); %TA said to flip was he wrong?
     yi = y;
-    mu = 0.0025;
-    iterations = 100000;
-    w = zeros(32,1);
+    mu = 0.005;
+    iterations = M*100000;
+    w = zeros(M*N,1);
     
-    for i = 1:1:iterations
-        ei = s(mod(i, N)+1) - w'*yi;
+    for i = 1:iterations        
+        ei = s(floor(mod(i, M*N)/M)+1) - w'*yi;
         w = w + 2*mu*conj(ei)*yi;
         yi = circshift(yi,-1);
     end
 end
 
-function s2 = equalizer(y, w, N)
+function s2 = fractionally_spaced_eq(y, w, N)
     % w_row = reshape(w,1,N);
-    % TODO: add adapter algorithm?  Like equalizerT_NLMS.m',
+    % add adaptation algorithm?  Like equalizerT2_NLMS.m',
+    w_row = w;
+    overshoot = N-(mod(length(y),N)+1); %calculate this
+    for n = 1:1:length(y)
+        if n + N-1 > length(y)
+            s2(n:length(y)) = w_row(1:mod(length(y),N)+overshoot)'*y(n:length(y));
+            overshoot = overshoot - 1;
+        else
+            s2(n:n+N-1) = w_row'*y(n:n+N-1);
+        end
+    end
+    s2 = reshape(s2,length(s2),1);
+end
+
+function s2 = symbol_spaced_eq(y, w, N)
+    % w_row = reshape(w,1,N);
     w_row = w;
     overshoot = N-(mod(length(y),N)+1); %calculate this
     for n = 1:1:length(y)
