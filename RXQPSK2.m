@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF4.mat')
+load('xRF2.mat')
 
 %-----start of part 1-----
 
@@ -71,8 +71,10 @@ N = length(cp);
 %----------------------------
 %-------start of part 2------
 abs_ryy = abs(autocorrelation(xBBd, M*(N-1))); % N = 31
+abs_ryy_dec = expander(abs(autocorrelation(decimator(xBBd(1:end),M), N-1)),M);
+%abs_ryy_dec = expander(decimator(abs_ryy(2:end), M),M);
 figure
-plot(abs_ryy)
+plot(abs_ryy_dec)
 xlabel("n")
 ylabel("autocorrelation")
 title("Autocorrelation");
@@ -81,8 +83,8 @@ ryy_maxima_indeces = find(islocalmax(abs_ryy)==1);
 %**** TODO - which peak should I pick? *****
 % does cp = s?
 top_two_maxima = maxk(abs_ryy,5);
-ryy_max_index = find_autocorrelation_peak(abs_ryy, N, M);
-%ryy_max_index = 153;
+ryy_max_index = find_autocorrelation_peak(abs_ryy_dec, N, M); %should be 199 for RF2, 149 for RF1
+%ryy_max_index = 199;
 s = xBBd(ryy_max_index:ryy_max_index+M*N-1);
 w = esimte_tap_weights(s, cp, N, M);
 %center largest tap weight
@@ -198,10 +200,12 @@ end
 
 function peak_index = find_autocorrelation_peak(abs_ryy, N, M)
     L = N*M;
-    before_payload = find(abs_ryy==0);
-    begin_preamble = before_payload(end)+1;
-    peak = max(abs_ryy(begin_preamble:begin_preamble+L+11*M-1)); %*****TODO figure out a better way
-    peak_index = find(abs_ryy(begin_preamble:begin_preamble+L+11*M-1)==peak)+begin_preamble-1;
+    before_payload = find(abs_ryy>0);
+    begin_preamble = before_payload(1)+1;
+    peak = max(abs_ryy(begin_preamble:begin_preamble+L+N));
+    % peak = max(abs_ryy(begin_preamble:begin_preamble+L+11*M-1)); %*****TODO figure out a better way
+    % peak_index = find(abs_ryy(begin_preamble:begin_preamble+L+11*M-1)==peak)+begin_preamble-1;
+    peak_index = find(abs_ryy(begin_preamble:begin_preamble+L+N)==peak)+begin_preamble+M-1;
     peak_index=peak_index;
 end
 
