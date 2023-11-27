@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF1.mat')
+load('xRF4.mat')
 
 %-----start of part 1-----
 
@@ -70,7 +70,7 @@ N = length(cp);
 %-------end of part 1--------
 %----------------------------
 %-------start of part 2------
-abs_ryy = abs(autocorrelation(xBBd, M*N-1)); % N = 31
+abs_ryy = abs(autocorrelation(xBBd, M*(N-1))); % N = 31
 figure
 plot(abs_ryy)
 xlabel("n")
@@ -80,7 +80,10 @@ title("Autocorrelation");
 ryy_maxima_indeces = find(islocalmax(abs_ryy)==1);
 %**** TODO - which peak should I pick? *****
 % does cp = s?
-s = xBBd(ryy_maxima_indeces(4):ryy_maxima_indeces(4)+M*N-1);
+top_two_maxima = maxk(abs_ryy,5);
+ryy_max_index = find_autocorrelation_peak(abs_ryy, N, M);
+%ryy_max_index = 153;
+s = xBBd(ryy_max_index:ryy_max_index+M*N-1);
 w = esimte_tap_weights(s, cp, N, M);
 %center largest tap weight
 w = circshift(w, N/2 - find(w==max(w)));
@@ -104,7 +107,7 @@ bits = QPSK2bits(payload_p2); % TODO fix this
 % save bits to file
 bin2file(bits', "transmitted_file.txt");
 
-function p1 =  find_rho1(CBB, Tb)
+function p1 = find_rho1(CBB, Tb)
     sigma_s = var(CBB); 
     p1 = 0;
     for f = 1:1:length(CBB)
@@ -155,7 +158,7 @@ function w = esimte_tap_weights(y, s, N, M)
     iterations = M*100000;
     w = zeros(M*N,1);
     
-    for i = 1:iterations        
+    for i = 0:iterations        
         ei = s(floor(mod(i, M*N)/M)+1) - w'*yi;
         w = w + 2*mu*conj(ei)*yi;
         yi = circshift(yi,-1);
@@ -191,6 +194,15 @@ function s2 = symbol_spaced_eq(y, w, N)
         end
     end
     s2 = reshape(s2,length(s2),1);
+end
+
+function peak_index = find_autocorrelation_peak(abs_ryy, N, M)
+    L = N*M;
+    before_payload = find(abs_ryy==0);
+    begin_preamble = before_payload(end)+1;
+    peak = max(abs_ryy(begin_preamble:begin_preamble+L+11*M-1)); %*****TODO figure out a better way
+    peak_index = find(abs_ryy(begin_preamble:begin_preamble+L+11*M-1)==peak)+begin_preamble-1;
+    peak_index=peak_index;
 end
 
 function eye_pattern(y)
