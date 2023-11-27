@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF2.mat')
+load('xRF4.mat')
 
 %-----start of part 1-----
 
@@ -75,16 +75,12 @@ xlabel("n")
 ylabel("autocorrelation")
 title("Autocorrelation");
 
-ryy_maxima_indeces = find(islocalmax(abs_ryy)==1);
-%**** TODO - which peak should I pick? *****
- %****find top three, pick one
-% does cp = s?
-s = xBBd(ryy_maxima_indeces(4):ryy_maxima_indeces(4)+N-1);
+peak_index = find_starting_peak(abs_ryy, N);
+s = xBBd(peak_index:peak_index+N-1);
 w = estimate_tap_weigths(s, cp, N);
-%center largest tap weight
 w = circshift(w, N/2 - find(w==max(w)));
 
-xBBe = equalizer(xBBd, w, N);
+xBBe = symbol_spaced_equalizer(xBBd, w, N);
 figure
 eye_pattern(xBBe);
 title("xBBe")
@@ -160,8 +156,7 @@ function w = estimate_tap_weigths(y, s, N)
     end
 end
 
-function s2 = equalizer(y, w, N)
-    % w_row = reshape(w,1,N);
+function s2 = symbol_spaced_equalizer(y, w, N)
     % TODO: add adapter algorithm?  Like equalizerT_NLMS.m',
     w_row = w;
     overshoot = N-(mod(length(y),N)+1); %calculate this
@@ -174,6 +169,12 @@ function s2 = equalizer(y, w, N)
         end
     end
     s2 = reshape(s2,length(s2),1);
+end
+
+function index = find_starting_peak(y, N)
+    before_payload = find(y>0);
+    begin_preamble = before_payload(1)+1;
+    index = find(y==max(y(begin_preamble:begin_preamble+2*N)));
 end
 
 function eye_pattern(y)
