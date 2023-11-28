@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF4.mat')
+load('xRF3.mat')
 
 %-----start of part 1-----
 
@@ -29,18 +29,17 @@ title("Filtered baseband signal");
 
 % sample the signal in timing phase that maximizes signal power
 % 10.1
-[CBB, f] = spec_analysis(y,fs);
+CBB = fft(y);
 
-rho0 = 0;
-% ***is this the right way to delay?
-rho1 = find_rho1(CBB, Tb);
-
-% calculate timing recovery cost function
+rho0 = find_rhon(CBB, Tb, 0);
+rho1 = find_rhon(CBB, Tb, 1);
+% 
+% % calculate timing recovery cost function
 rhot = rho0 + 2*abs(rho1)*cos(2*pi/Tb*t + angle(rho1)); % 10.12
-sample_indeces = find(rhot==max(rhot));
+sample_indices = find(rhot==max(rhot));
 
 % figure this part out
-xBBd = y(sample_indeces); % max power
+xBBd = y(sample_indices); % max power
 
 % look at eye pattern
 figure
@@ -98,17 +97,18 @@ bits = QPSK2bits(payload_p2); % TODO fix this
 % save bits to file
 bin2file(bits', "transmitted_file.txt");
 
-function p1 =  find_rho1(CBB, Tb)
+function pn = find_rhon(CBB, Tb, n)
     sigma_s = var(CBB); 
-    p1 = 0;
+    pn = 0;
     for f = 1:1:length(CBB)
         if(f>1/Tb+1)
-            p1 = p1 + sigma_s^2/Tb*CBB(f)*CBB(f-1/Tb)';
+            pn = pn + sigma_s^2/Tb*CBB(f)*CBB(f-n/Tb)';
         end
     end
 end
 
 function index = find_preamble_start(y, cp)
+    correlations = zeros(1,length(y));
     for i = 1:1:length(y)
         if i+length(cp)-1 < length(y)
             correlations(i) = corr(real(y(i:i+length(cp)-1)), real(cp));
@@ -119,6 +119,7 @@ function index = find_preamble_start(y, cp)
 end
 
 function index = find_payload_start(y, cp)
+    correlations = zeros(1,length(y));
     for i = 1:1:length(y)
         if i+length(cp)-1 < length(y)
             correlations(i) = corr(real(y(i:i+length(cp)-1)), real(cp));
@@ -157,15 +158,13 @@ function w = estimate_tap_weigths(y, s, N)
 end
 
 function s2 = symbol_spaced_equalizer(y, w, N)
-    % TODO: add adapter algorithm?  Like equalizerT_NLMS.m',
-    w_row = w;
     overshoot = N-(mod(length(y),N)+1); %calculate this
     for n = 1:1:length(y)
         if n + N-1 > length(y)
-            s2(n:length(y)) = w_row(1:mod(length(y),N)+overshoot)'*y(n:length(y));
+            s2(n:length(y)) = w(1:mod(length(y),N)+overshoot)'*y(n:length(y));
             overshoot = overshoot - 1;
         else
-            s2(n:n+N-1) = w_row'*y(n:n+N-1);
+            s2(n:n+N-1) = w'*y(n:n+N-1);
         end
     end
     s2 = reshape(s2,length(s2),1);

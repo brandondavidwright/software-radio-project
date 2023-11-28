@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF1.mat')
+load('xRF2.mat')
 
 %-----start of part 1-----
 
