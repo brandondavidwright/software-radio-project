@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF7.mat')
+load('xRF8.mat')
 
 %-----start of part 1-----
 
@@ -54,9 +54,9 @@ title("eye pattern of xBBd")
 %------------------
 %---begin part 4.1-
 %------------------
-N1 = 29; % what are these
-
-N2 = 50;
+i = find_end_transience(xBBd, N);
+N1=find_end_transience(xBBd, N)-2; %18 for xrf7 - why subtract 2?
+N2 = N1 + N -1;
 J = findJ(xBBd, N1, N2, N);
 
 Dfc_est = angle(J)/(2*pi*N*Tb);
@@ -124,10 +124,10 @@ title("Eye view of xBBc")
 
 payload_start = find_payload_start(xBBc, cp);
 
-payload_p2 = xBBe(payload_start:end);
+payload_p2 = xBBc(payload_start:end);
 figure
 eye_pattern(payload_p2);
-title("payload part of xBBe")
+title("payload")
 
 bits = QPSK2bits(payload_p2); % TODO fix this
 
@@ -238,5 +238,19 @@ function J = findJ(y, N1, N2, N)
     J = 0;
     for n = N1:1:N2
         J = J + y(n + N)*y(n)';
+    end
+end
+
+% --- https://www.mathworks.com/matlabcentral/fileexchange/68486-transient-time-measurement-with-matlab-implementation
+% --- TODO: cite this
+function index = find_end_transience(y, N)
+    for i = 1:1:150
+        dev = abs(abs(y(i)) - abs(y(i+N)));
+        disp(dev)
+        disp(i)
+        if dev < 0.02 %got this value from link above
+            index = i;
+            break;
+        end
     end
 end
