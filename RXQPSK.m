@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF6.mat')
+load('xRF7.mat')
 
 %-----start of part 1-----
 
@@ -51,17 +51,18 @@ xBBd = xR(sample_indices); % max power
 figure
 eye_pattern(xBBd)
 title("eye pattern of xBBd")
-
 %------------------
 %---begin part 4.1-
 %------------------
-N1 = 15;
-N2 = 24;
+N1 = 29; % what are these
+
+N2 = 50;
 J = findJ(xBBd, N1, N2, N);
 
 Dfc_est = angle(J)/(2*pi*N*Tb);
-offset = exp(1j*2*pi*Dfc_est*1:1:length(xBBd)*Tb);
-xBBo = xBBd*offset;
+t1 = (0:1:length(xBBd)-1)'*Tb;
+offset = exp(-1j*2*pi*Dfc_est*t1);
+xBBo = xBBd.*offset;
 figure
 eye_pattern(xBBo);
 title("eye pattern of xBBo");
@@ -110,7 +111,8 @@ title("xBBe");
 %------------------
 
 phic = ddrc(xBBe);
-xBBc = xBBe*exp(-1j*phic);
+
+xBBc = xBBe*exp(-1j*phic); %TODO negative or positive?
 
 figure
 eye_pattern(xBBc);
@@ -135,11 +137,12 @@ bin2file(bits', "transmitted_file.txt");
 function pn = find_rhon(CBB, Tb, n)
     sigma_s = var(CBB); 
     pn = 0;
-    for f = 1:1:length(CBB)
-        if(f>1/Tb+1)
-            pn = pn + sigma_s^2/Tb*CBB(f)*CBB(f-n/Tb)';
-        end
-    end
+    % for f = 1:1:length(CBB)
+    %     if(f>1/Tb+1)
+    %         pn = pn + sigma_s^2/Tb*CBB(f)*CBB(f-n/Tb)';
+    %     end
+    % end
+    pn = trapz(CBB.*reshape(delayseq(CBB, n/Tb)',length(CBB),1));
 end
 
 function index = find_preamble_start(y, cp)
@@ -220,8 +223,7 @@ end
 function dfc = ddrc(y)
     phi = zeros(size(y));
     s1 = zeros(size(y));
-    mu = 0.01;
-    iterations = 100;
+    mu = 0.001;
     for n = 1:1:length(y)-1
         s1(n) = y(n)*exp(-1j*phi(n));
         s2 = sign(real(s1(n)))+1j*sign(imag(s1(n))); %slicer
