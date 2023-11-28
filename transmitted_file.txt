@@ -1,2 +1,0 @@
-What is that elephants have, but other animals do not?
-Answer can be found by extracting the content of xRF2ans.mat

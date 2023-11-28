@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF3.mat')
+load('xRF6.mat')
 
 %-----start of part 1-----
 
@@ -11,6 +11,8 @@ title("Received signal");
 
 % convert to baseband QAM signal
 t = (0:length(xRF)-1)'*Ts; %time of xRF
+N = length(cp);
+
 xBB = 2*exp(-1j*2*pi*fc*t).*xRF; % desired baseband signal
 
 % examine spectrum of unfiltered baseband
@@ -20,16 +22,21 @@ title("Unfiltered baseband signal");
 
 %filter out out-of-spectrum components
 pR=pT; % receiver filter
-y = conv(xBB, pR);
+xR = conv(xBB, pR);
 
-% examine spectrum of unfiltered baseband
 figure
-spec_analysis(y,fs);
-title("Filtered baseband signal");
+spec_analysis(xR,fs);
+title("filtered baseband signal");
+% examine spectrum of unfiltered baseband
+
+% look at eye pattern
+figure
+eye_pattern(xR);
+title("eye pattern of xR")
 
 % sample the signal in timing phase that maximizes signal power
 % 10.1
-CBB = fft(y);
+CBB = fft(xR);
 
 rho0 = find_rhon(CBB, Tb, 0);
 rho1 = find_rhon(CBB, Tb, 1);
@@ -39,16 +46,29 @@ rhot = rho0 + 2*abs(rho1)*cos(2*pi/Tb*t + angle(rho1)); % 10.12
 sample_indices = find(rhot==max(rhot));
 
 % figure this part out
-xBBd = y(sample_indices); % max power
-
-% look at eye pattern
-figure
-eye_pattern(y);
-title("eye pattern of y")
+xBBd = xR(sample_indices); % max power
 
 figure
-eye_pattern(y)
+eye_pattern(xBBd)
 title("eye pattern of xBBd")
+
+%------------------
+%---begin part 4.1-
+%------------------
+N1 = 15;
+N2 = 24;
+J = findJ(xBBd, N1, N2, N);
+
+Dfc_est = angle(J)/(2*pi*N*Tb);
+offset = exp(1j*2*pi*Dfc_est*1:1:length(xBBd)*Tb);
+xBBo = xBBd*offset;
+figure
+eye_pattern(xBBo);
+title("eye pattern of xBBo");
+
+%------------------
+%---end part 4.1---
+%------------------
 
 % identify preamble and extract payload
 
@@ -67,7 +87,7 @@ N = length(cp);
 %-------end of part 1--------
 %----------------------------
 %-------start of part 2------
-abs_ryy = abs(autocorrelation(xBBd, N-1)); % N = 31
+abs_ryy = abs(autocorrelation(xBBo, N-1)); % N = 31
 figure
 plot(abs_ryy)
 xlabel("n")
@@ -75,17 +95,32 @@ ylabel("autocorrelation")
 title("Autocorrelation");
 
 peak_index = find_starting_peak(abs_ryy, N);
-s = xBBd(peak_index:peak_index+N-1);
+s = xBBo(peak_index:peak_index+N-1);
 w = estimate_tap_weigths(s, cp, N);
 w = circshift(w, N/2 - find(w==max(w)));
 
-xBBe = symbol_spaced_equalizer(xBBd, w, N);
+xBBe = symbol_spaced_equalizer(xBBo, w, N);
 figure
 eye_pattern(xBBe);
-title("xBBe")
+title("xBBe");
 
-N = length(cp);
-payload_start = find_payload_start(xBBe, cp);
+
+%------------------
+%--begin part 4.3---
+%------------------
+
+phic = ddrc(xBBe);
+xBBc = xBBe*exp(-1j*phic);
+
+figure
+eye_pattern(xBBc);
+title("Eye view of xBBc")
+
+%------------------
+%--end part 4.3-----
+%------------------
+
+payload_start = find_payload_start(xBBc, cp);
 
 payload_p2 = xBBe(payload_start:end);
 figure
@@ -180,4 +215,26 @@ function eye_pattern(y)
     plot(y, "b")
     xlabel("real part")
     ylabel("imaginary part");
+end
+
+function dfc = ddrc(y)
+    phi = zeros(size(y));
+    s1 = zeros(size(y));
+    mu = 0.01;
+    iterations = 100;
+    for n = 1:1:length(y)-1
+        s1(n) = y(n)*exp(-1j*phi(n));
+        s2 = sign(real(s1(n)))+1j*sign(imag(s1(n))); %slicer
+        s12=s1(n)*s2';
+        e = imag(s12)/real(s12);
+        phi(n+1) = phi(n) + mu*e;
+    end
+    dfc = phi(end);
+end
+
+function J = findJ(y, N1, N2, N)
+    J = 0;
+    for n = N1:1:N2
+        J = J + y(n + N)*y(n)';
+    end
 end
