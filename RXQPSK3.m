@@ -1,10 +1,8 @@
 close all; clear;
 
-load('xRF7.mat')
+load('xRF9.mat')
 
-%----------------------------
-%---begin part 1-------------
-%----------------------------
+%-----start of part 1-----
 
 % examine spectrum of xRF
 figure
@@ -53,13 +51,11 @@ xBBd = xR(sample_indices); % max power
 figure
 eye_pattern(xBBd)
 title("eye pattern of xBBd")
-%----------------------------
-%---part 1 to be continued---
-%----------------------------
-%---begin part 4.1-----------
-%----------------------------
+%------------------
+%---begin part 4.1-
+%------------------
 i = find_end_transience(xBBd, N);
-N1=find_end_transience(xBBd, N); %18 for xrf7 - why subtract 2?
+N1=find_end_transience(xBBd, N)-2; %18 for xrf7 - why subtract 2?
 N2 = N1 + N -1;
 J = findJ(xBBd, N1, N2, N);
 
@@ -71,11 +67,9 @@ figure
 eye_pattern(xBBo);
 title("eye pattern of xBBo");
 
-%----------------------------
-%---end part 4.1-------------
-%----------------------------
-%---part 1 continues---------
-%----------------------------
+%------------------
+%---end part 4.1---
+%------------------
 
 % identify preamble and extract payload
 
@@ -91,10 +85,9 @@ N = length(cp);
 
 %bits = QPSK2bits(payload);
 
+%-------end of part 1--------
 %----------------------------
-%---end of part 1------------
-%----------------------------
-%---start of part 2----------
+%-------start of part 2------
 abs_ryy = abs(autocorrelation(xBBo, N-1)); % N = 31
 figure
 plot(abs_ryy)
@@ -112,11 +105,10 @@ figure
 eye_pattern(xBBe);
 title("xBBe");
 
-%----------------------------
-%---part 2 to be continued---
-%----------------------------
-%---begin part 4.3-----------
-%----------------------------
+
+%------------------
+%--begin part 4.3---
+%------------------
 
 phic = ddrc(xBBe);
 
@@ -126,10 +118,9 @@ figure
 eye_pattern(xBBc);
 title("Eye view of xBBc")
 
-%----------------------------
-%---end part 4.3-------------
-%----------------------------
-%---part 2 continues---------
+%------------------
+%--end part 4.3-----
+%------------------
 
 payload_start = find_payload_start(xBBc, cp);
 
@@ -145,13 +136,13 @@ bin2file(bits', "transmitted_file.txt");
 
 function pn = find_rhon(CBB, Tb, n)
     sigma_s = var(CBB); 
-    % pn = 0;
+    pn = 0;
     % for f = 1:1:length(CBB)
     %     if(f>1/Tb+1)
     %         pn = pn + sigma_s^2/Tb*CBB(f)*CBB(f-n/Tb)';
     %     end
     % end
-    pn = sigma_s^2/Tb*trapz(CBB.*reshape(delayseq(CBB, n/Tb)',length(CBB),1));
+    pn = trapz(CBB.*reshape(delayseq(CBB, n/Tb)',length(CBB),1));
 end
 
 function index = find_preamble_start(y, cp)
@@ -257,7 +248,7 @@ function index = find_end_transience(y, N)
         dev = abs(abs(y(i)) - abs(y(i+N)));
         disp(dev)
         disp(i)
-        if dev < 0.05 %got 0.02 value from link above, but 0.05 seems to work better for both test files
+        if dev < 0.02 %got this value from link above
             index = i;
             break;
         end

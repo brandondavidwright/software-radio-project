@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF2.mat')
+load('xRF2ans.mat')
 
 %-----start of part 1-----
 
@@ -45,7 +45,7 @@ title("Filtered baseband signal");
 
 %------start part 3------
 M = 2;
-L = 100/M;
+L = Tb/Ts/M;
 xBBd = decimator(y,L); % decimated at twice the symbol rate
 % ***how do we vary timing phase?
 
@@ -70,7 +70,7 @@ N = length(cp);
 %-------end of part 1--------
 %----------------------------
 %-------start of part 2------
-abs_ryy = abs(autocorrelation(xBBd, M*(N-1))); % N = 31
+abs_ryy = abs(autocorrelation(xBBd, M*N-1)); % N = 31
 abs_ryy_dec = expander(abs(autocorrelation(decimator(xBBd(1:end),M), N-1)),M);
 figure
 plot(abs_ryy)
@@ -83,7 +83,7 @@ ryy_max_index = find_autocorrelation_peak(abs_ryy, N, M); %should be 199 for RF2
 s = xBBd(ryy_max_index:ryy_max_index+M*N-1);
 w = esimte_tap_weights(s, cp, N, M);
 %center largest tap weight
-w = circshift(w, N/2 - find(w==max(w)));
+w = circshift(w, M*N/2 - find(w==max(w)));
 
 xBBe = fractionally_spaced_eq(xBBd, w, M*N);
 figure
