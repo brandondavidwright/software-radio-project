@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF1.mat')
+load('xRF8.mat')
 
 %----------------------------
 %---begin part 1-------------
@@ -38,17 +38,15 @@ title("eye pattern of xR")
 
 % sample the signal in timing phase that maximizes signal power
 % 10.1
-% rho0 = find_rhon(xBBf, Tb, 0);
-% rho1 = find_rhon(xBBf, Tb, 1);
-% 
-% t1 = (0:length(xBBf)-1)'*Ts;
-% rhot = rho0 + 2*abs(rho1)*cos(2*pi/Tb*t1 + angle(rho1)); % 10.12
-% sample_indices = find(rhot==max(rhot));
-rhot = find_rhot(xBBf, L);
+rho0 = find_rhon(xBBf, Tb, 0);
+rho1 = find_rhon(xBBf, Tb, 1);
+
+t1 = (0:length(xBBf)-1)'*Ts;
+rhot = rho0 + 2*abs(rho1)*cos(2*pi/Tb*t1 + angle(rho1)); % 10.12
 
 peak_indices = find(rhot==max(rhot)); %find max power
 
-xBBd = xBBf(peak_indices(1):L:length(xBBf)); % max power
+xBBd = xBBf(peak_indices); % max power
 % 
 % % calculate timing recovery cost function
 
@@ -149,7 +147,7 @@ bin2file(bits', "transmitted_file.txt");
 
 function rhot = find_rhot(cBB, L)
     rhot = zeros(1);
-    for tau = 1:L
+    for tau = 1:1:5*L
         rhot(tau) = sum(abs(cBB(tau:1:end)).^2);
     end
 end
@@ -216,8 +214,7 @@ function ryy = autocorrelation(y, N)
 end
 
 function w = estimate_tap_weigths(y, s, N)
-    %yi = flipud(y); %TA said to flip
-    yi = y;
+    yi = fliplr(y); %TA said to flip
     mu = 0.0025;
     iterations = 100000;
     w = zeros(32,1);

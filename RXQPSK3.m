@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF9.mat')
+load('xRF1.mat')
 
 %----------------------------
 %---begin part 1-------------
@@ -119,8 +119,7 @@ function ryy = autocorrelation(y, N)
 end
 
 function w = estimate_tap_weigths(y, s, N)
-    % yi = flipud(y); %TA said to flip
-    yi = y;
+    yi = fliplr(y);
     mu = 0.0025;
     iterations = 100000;
     w = zeros(32,1);

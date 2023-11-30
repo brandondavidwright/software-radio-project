@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF5ans.mat')
+load('xRF4ans.mat')
 
 %-----start of part 1-----
 
@@ -28,21 +28,6 @@ spec_analysis(xBBf,fs);
 title("Filtered baseband signal");
 
 %--remove timing phase for part 3
-% % sample the signal in timing phase that maximizes signal power
-% % 10.1
-% [CBB, f] = spec_analysis(y,fs);
-% 
-% rho0 = 0;
-% % ***is this the right way to delay?
-% rho1 = find_rho1(CBB, Tb);
-% 
-% % calculate timing recovery cost function
-% rhot = rho0 + 2*abs(rho1)*cos(2*pi/Tb*t + angle(rho1)); % 10.12
-% sample_indeces = find(rhot==max(rhot));
-% 
-% % figure this part out
-% xBBd = y(sample_indeces); % max power
-
 %------start part 3------
 M = 2;
 L = Tb/Ts/M;
@@ -81,7 +66,7 @@ title("Autocorrelation");
 ryy_maxima_indeces = find(islocalmax(abs_ryy)==1);
 ryy_max_index = find_autocorrelation_peak(abs_ryy, N, M); %should be 199 for RF2, 149 for RF1
 s = xBBd(ryy_max_index:ryy_max_index+M*N-1);
-w = esimte_tap_weights(s, cp, N, M);
+w = estimate_tap_weigths(s, cp, N, M);
 %center largest tap weight
 w = circshift(w, M*N/2 - find(w==max(w)));
 
@@ -147,14 +132,13 @@ function ryy = autocorrelation(y, N)
     end
 end
 
-function w = esimte_tap_weights(y, s, N, M)
-    % yi = flipud(y); %TA said to flip was he wrong?
-    yi = y;
+function w = estimate_tap_weigths(y, s, N, M)
+    yi = fliplr(y);
     mu = 0.001; %lower mu due to non symbols in tap weight estimation
     iterations = M*100000;
     w = zeros(M*N,1);
     
-    for i = 0:iterations        
+    for i = 0:iterations
         ei = s(floor(mod(i, M*N)/M)+1) - w'*yi;
         w = w + 2*mu*conj(ei)*yi;
         yi = circshift(yi,-1);
