@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF2ans.mat')
+load('xRF5ans.mat')
 
 %-----start of part 1-----
 
@@ -20,11 +20,11 @@ title("Unfiltered baseband signal");
 
 %filter out out-of-spectrum components
 pR=pT; % receiver filter
-y = conv(xBB, pR);
+xBBf = conv(xBB, pR);
 
 % examine spectrum of unfiltered baseband
 figure
-spec_analysis(y,fs);
+spec_analysis(xBBf,fs);
 title("Filtered baseband signal");
 
 %--remove timing phase for part 3
@@ -46,12 +46,12 @@ title("Filtered baseband signal");
 %------start part 3------
 M = 2;
 L = Tb/Ts/M;
-xBBd = decimator(y,L); % decimated at twice the symbol rate
+xBBd = decimator(xBBf,L); % decimated at twice the symbol rate
 % ***how do we vary timing phase?
 
 % look at eye pattern
 figure
-eye_pattern(y);
+eye_pattern(xBBf);
 
 % identify preamble and extract payload
 

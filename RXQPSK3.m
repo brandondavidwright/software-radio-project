@@ -2,7 +2,9 @@ close all; clear;
 
 load('xRF9.mat')
 
-%-----start of part 1-----
+%----------------------------
+%---begin part 1-------------
+%----------------------------
 
 % examine spectrum of xRF
 figure
@@ -22,127 +24,62 @@ title("Unfiltered baseband signal");
 
 %filter out out-of-spectrum components
 pR=pT; % receiver filter
-xR = conv(xBB, pR);
+xBBf = conv(xBB, pR);
 
 figure
-spec_analysis(xR,fs);
+spec_analysis(xBBf,fs);
 title("filtered baseband signal");
 % examine spectrum of unfiltered baseband
 
 % look at eye pattern
 figure
-eye_pattern(xR);
-title("eye pattern of xR")
+eye_pattern(xBBf);
+title("eye pattern of cBB")
 
-% sample the signal in timing phase that maximizes signal power
-% 10.1
-CBB = fft(xR);
+%----------------------------
+%---part 1 to be continued---
+%----------------------------
+%---begin part 5-------------
+%----------------------------
 
-rho0 = find_rhon(CBB, Tb, 0);
-rho1 = find_rhon(CBB, Tb, 1);
-% 
-% % calculate timing recovery cost function
-rhot = rho0 + 2*abs(rho1)*cos(2*pi/Tb*t + angle(rho1)); % 10.12
-sample_indices = find(rhot==max(rhot));
-
-% figure this part out
-xBBd = xR(sample_indices); % max power
+M = 4; % 4 because of 4-QAM?
+ytau = ddtr(xBBf, L, M);
+xBBd = ytau;
 
 figure
 eye_pattern(xBBd)
 title("eye pattern of xBBd")
-%------------------
-%---begin part 4.1-
-%------------------
-i = find_end_transience(xBBd, N);
-N1=find_end_transience(xBBd, N)-2; %18 for xrf7 - why subtract 2?
-N2 = N1 + N -1;
-J = findJ(xBBd, N1, N2, N);
 
-Dfc_est = angle(J)/(2*pi*N*Tb);
-t1 = (0:1:length(xBBd)-1)'*Tb;
-offset = exp(-1j*2*pi*Dfc_est*t1);
-xBBo = xBBd.*offset;
-figure
-eye_pattern(xBBo);
-title("eye pattern of xBBo");
-
-%------------------
-%---end part 4.1---
-%------------------
+%----------------------------
+%---end of part 5------------
+%----------------------------
+%---part 1 continues---------
+%----------------------------
 
 % identify preamble and extract payload
-
 %detect preamble
 % extract data symbols from payload and convert to bit stream
 preamble = [cp; cp; cp; cp];
-N = length(cp);
-%payload_start = find_payload_start(xBBd, cp);
+payload_start = find_payload_start(xBBd, cp);
 
-%payload_p1 = xBBd(payload_start:end);
-%figure
-%eye_pattern(payload_p1)
-
-%bits = QPSK2bits(payload);
-
-%-------end of part 1--------
-%----------------------------
-%-------start of part 2------
-abs_ryy = abs(autocorrelation(xBBo, N-1)); % N = 31
+payload = xBBd(payload_start:end);
 figure
-plot(abs_ryy)
-xlabel("n")
-ylabel("autocorrelation")
-title("Autocorrelation");
+eye_pattern(payload)
+title("eye pattern of payload")
 
-peak_index = find_starting_peak(abs_ryy, N);
-s = xBBo(peak_index:peak_index+N-1);
-w = estimate_tap_weigths(s, cp, N);
-w = circshift(w, N/2 - find(w==max(w)));
-
-xBBe = symbol_spaced_equalizer(xBBo, w, N);
-figure
-eye_pattern(xBBe);
-title("xBBe");
-
-
-%------------------
-%--begin part 4.3---
-%------------------
-
-phic = ddrc(xBBe);
-
-xBBc = xBBe*exp(-1j*phic); %TODO negative or positive?
-
-figure
-eye_pattern(xBBc);
-title("Eye view of xBBc")
-
-%------------------
-%--end part 4.3-----
-%------------------
-
-payload_start = find_payload_start(xBBc, cp);
-
-payload_p2 = xBBc(payload_start:end);
-figure
-eye_pattern(payload_p2);
-title("payload")
-
-bits = QPSK2bits(payload_p2); % TODO fix this
+bits = QPSK2bits(payload);
 
 % save bits to file
 bin2file(bits', "transmitted_file.txt");
 
-function pn = find_rhon(CBB, Tb, n)
-    sigma_s = var(CBB); 
-    pn = 0;
-    % for f = 1:1:length(CBB)
-    %     if(f>1/Tb+1)
-    %         pn = pn + sigma_s^2/Tb*CBB(f)*CBB(f-n/Tb)';
-    %     end
-    % end
-    pn = trapz(CBB.*reshape(delayseq(CBB, n/Tb)',length(CBB),1));
+%----------------------------
+%---end of part 1------------
+%----------------------------
+
+function pn = find_rhon(cBB, Tb, n)
+    sigma_s = var(cBB); 
+    CBB = fft(cBB);
+    pn = sigma_s^2/Tb*trapz(CBB.*reshape(delayseq(CBB, n/Tb)',length(CBB),1));
 end
 
 function index = find_preamble_start(y, cp)
@@ -252,5 +189,24 @@ function index = find_end_transience(y, N)
             index = i;
             break;
         end
+    end
+end
+
+function ytau = ddtr(y, L, M)
+    mu = 0.05;
+    Ly = length(y);
+    start = 5*L+1;
+    kk = 1;
+    tau = 0.3*ones(floor((Ly-start)/L),1);
+    dtau = 6; % TODO what is dtau?
+    ytau = zeros(size(tau));
+
+    for k = start:L:length(tau)*L-L
+        tauTb = round(tau(kk)*L);
+        ytau(kk) = y(k + tauTb);
+        sk = slicer(y(k+tauTb),M);
+        tau(kk+1) = tau(kk) + mu*real((sk-y(k+tauTb)) ...
+                *(y(k+tauTb+dtau)-y(k+tauTb-dtau))');
+        kk = kk + 1;
     end
 end

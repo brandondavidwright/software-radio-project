@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF7.mat')
+load('xRF8.mat')
 
 %----------------------------
 %---begin part 1-------------
@@ -24,31 +24,31 @@ title("Unfiltered baseband signal");
 
 %filter out out-of-spectrum components
 pR=pT; % receiver filter
-xR = conv(xBB, pR);
+xBBf = conv(xBB, pR);
 
 figure
-spec_analysis(xR,fs);
+spec_analysis(xBBf,fs);
 title("filtered baseband signal");
 % examine spectrum of unfiltered baseband
 
 % look at eye pattern
 figure
-eye_pattern(xR);
+eye_pattern(xBBf);
 title("eye pattern of xR")
 
 % sample the signal in timing phase that maximizes signal power
 % 10.1
-CBB = fft(xR);
 
-rho0 = find_rhon(CBB, Tb, 0);
-rho1 = find_rhon(CBB, Tb, 1);
+rho0 = find_rhon(xBBf, Tb, 0);
+rho1 = find_rhon(xBBf, Tb, 1);
+
+t1 = (0:length(xBBf)-1)'*Ts;
 % 
 % % calculate timing recovery cost function
-rhot = rho0 + 2*abs(rho1)*cos(2*pi/Tb*t + angle(rho1)); % 10.12
+rhot = rho0 + 2*abs(rho1)*cos(2*pi/Tb*t1 + angle(rho1)); % 10.12
 sample_indices = find(rhot==max(rhot));
 
-% figure this part out
-xBBd = xR(sample_indices); % max power
+xBBd = xBBf(sample_indices); % max power
 
 figure
 eye_pattern(xBBd)
@@ -59,7 +59,7 @@ title("eye pattern of xBBd")
 %---begin part 4.1-----------
 %----------------------------
 i = find_end_transience(xBBd, N);
-N1=find_end_transience(xBBd, N); %18 for xrf7 - why subtract 2?
+N1 = find_end_transience(xBBd, N); %18 for xrf7 - why subtract 2?
 N2 = N1 + N -1;
 J = findJ(xBBd, N1, N2, N);
 
@@ -143,14 +143,9 @@ bits = QPSK2bits(payload_p2); % TODO fix this
 % save bits to file
 bin2file(bits', "transmitted_file.txt");
 
-function pn = find_rhon(CBB, Tb, n)
-    sigma_s = var(CBB); 
-    % pn = 0;
-    % for f = 1:1:length(CBB)
-    %     if(f>1/Tb+1)
-    %         pn = pn + sigma_s^2/Tb*CBB(f)*CBB(f-n/Tb)';
-    %     end
-    % end
+function pn = find_rhon(cBB, Tb, n)
+    sigma_s = var(cBB); 
+    CBB = fft(cBB);
     pn = sigma_s^2/Tb*trapz(CBB.*reshape(delayseq(CBB, n/Tb)',length(CBB),1));
 end
 
@@ -255,8 +250,6 @@ end
 function index = find_end_transience(y, N)
     for i = 1:1:150
         dev = abs(abs(y(i)) - abs(y(i+N)));
-        disp(dev)
-        disp(i)
         if dev < 0.05 %got 0.02 value from link above, but 0.05 seems to work better for both test files
             index = i;
             break;
