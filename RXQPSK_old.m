@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF8.mat')
+load('xRF7.mat')
 
 %----------------------------
 %---begin part 1-------------
@@ -38,22 +38,17 @@ title("eye pattern of xR")
 
 % sample the signal in timing phase that maximizes signal power
 % 10.1
+
 rho0 = find_rhon(xBBf, Tb, 0);
 rho1 = find_rhon(xBBf, Tb, 1);
 
 t1 = (0:length(xBBf)-1)'*Ts;
+% 
+% % calculate timing recovery cost function
 rhot = rho0 + 2*abs(rho1)*cos(2*pi/Tb*t1 + angle(rho1)); % 10.12
 sample_indices = find(rhot==max(rhot));
 
 xBBd = xBBf(sample_indices); % max power
-% 
-% % calculate timing recovery cost function
-%rhot = find_rhot(xBBf, L);
-
-%peak_indices = find(rhot==max(rhot)); %find max power
-
-% only need to find first peak since rhot is periodic
-%xBBd = xBBf(peak_indices(1):L:end); 
 
 figure
 eye_pattern(xBBd)
@@ -63,6 +58,7 @@ title("eye pattern of xBBd")
 %----------------------------
 %---begin part 4.1-----------
 %----------------------------
+i = find_end_transience(xBBd, N);
 N1 = find_end_transience(xBBd, N); %18 for xrf7 - why subtract 2?
 N2 = N1 + N -1;
 J = findJ(xBBd, N1, N2, N);
@@ -147,36 +143,10 @@ bits = QPSK2bits(payload_p2); % TODO fix this
 % save bits to file
 bin2file(bits', "transmitted_file.txt");
 
-function rhot = find_rhot(cBB, L)
-    rhot = zeros(1);
-    for tau = 1:2*L
-        rhot(tau) = sum(abs(cBB(tau:L:end)).^2);
-    end
-end
-
 function pn = find_rhon(cBB, Tb, n)
-    sigma_s = var(cBB);
+    sigma_s = var(cBB); 
     CBB = fft(cBB);
-    pn = sigma_s^2/Tb*trapz(CBB.*delayseq(CBB, n/Tb)'.');
-
-    % CBB = fft(cBB);
-    % pn = 0;
-    % for f = 1:1:length(CBB)
-    %     if(f>n/Tb+1)
-    %         if n == 0
-    %             pn = sigma_s^2/Tb*abs(CBB(f)).^2;            
-    %         else
-    %             pn = pn + sigma_s^2/Tb*CBB(f)*CBB(f-1/Tb)';
-    %         end
-    %     end
-    % end
-    % 
-    %     p1 = 0;
-    % for f = 1:1:length(CBB)
-    %     if(f>1/Tb+1)
-    %         p1 = p1 + sigma_s^2/Tb*CBB(f)*CBB(f-1/Tb)';
-    %     end
-    % end
+    pn = sigma_s^2/Tb*trapz(CBB.*reshape(delayseq(CBB, n/Tb)',length(CBB),1));
 end
 
 function index = find_preamble_start(y, cp)
@@ -194,7 +164,7 @@ function index = find_payload_start(y, cp)
     correlations = zeros(1,length(y));
     for i = 1:1:length(y)
         if i+length(cp)-1 < length(y)
-             correlations(i) = corr(real(y(i:i+length(cp)-1)), real(cp));
+            correlations(i) = corr(real(y(i:i+length(cp)-1)), real(cp));
         end
     end
     start_last_cp = find(correlations>0.9, 1, "last");
@@ -216,7 +186,7 @@ function ryy = autocorrelation(y, N)
 end
 
 function w = estimate_tap_weigths(y, s, N)
-    %yi = flipud(y); %TA said to flip
+    % yi = flipud(y); %TA said to flip
     yi = y;
     mu = 0.0025;
     iterations = 100000;
@@ -286,21 +256,3 @@ function index = find_end_transience(y, N)
         end
     end
 end
-    
-% for i = 1:1:length(y)
-    %     correlation_real =  corr(real(y(i:i+N-1)), real(y(i+N:i+2*N-1)));
-    %     correlation_imag =  corr(imag(y(i:i+N-1)), imag(y(i+N:i+2*N-1)));
-    % 
-    % 
-    %     if correlation_real > 0.80 && correlation_imag > 0.80
-    %         break;
-    %     end
-    % 
-    %     % dev = abs(abs(y(i)) - abs(y(i+N)));
-    %     % if dev < 0.02 %got 0.02 value from link above, but 0.05 seems to work better for both test files
-    %     %     index = i;
-    %     %     break;
-    %     % end
-    % end
-    % i = i+9;
-% end
