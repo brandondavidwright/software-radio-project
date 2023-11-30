@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF8.mat')
+load('xRF1.mat')
 
 %----------------------------
 %---begin part 1-------------
@@ -38,19 +38,19 @@ title("eye pattern of xR")
 
 % sample the signal in timing phase that maximizes signal power
 % 10.1
-rho0 = find_rhon(xBBf, Tb, 0);
-rho1 = find_rhon(xBBf, Tb, 1);
+% rho0 = find_rhon(xBBf, Tb, 0);
+% rho1 = find_rhon(xBBf, Tb, 1);
+% 
+% t1 = (0:length(xBBf)-1)'*Ts;
+% rhot = rho0 + 2*abs(rho1)*cos(2*pi/Tb*t1 + angle(rho1)); % 10.12
+% sample_indices = find(rhot==max(rhot));
+rhot = find_rhot(xBBf, L);
 
-t1 = (0:length(xBBf)-1)'*Ts;
-rhot = rho0 + 2*abs(rho1)*cos(2*pi/Tb*t1 + angle(rho1)); % 10.12
-sample_indices = find(rhot==max(rhot));
+peak_indices = find(rhot==max(rhot)); %find max power
 
-xBBd = xBBf(sample_indices); % max power
+xBBd = xBBf(peak_indices(1):L:length(xBBf)); % max power
 % 
 % % calculate timing recovery cost function
-%rhot = find_rhot(xBBf, L);
-
-%peak_indices = find(rhot==max(rhot)); %find max power
 
 % only need to find first peak since rhot is periodic
 %xBBd = xBBf(peak_indices(1):L:end); 
@@ -149,15 +149,15 @@ bin2file(bits', "transmitted_file.txt");
 
 function rhot = find_rhot(cBB, L)
     rhot = zeros(1);
-    for tau = 1:2*L
-        rhot(tau) = sum(abs(cBB(tau:L:end)).^2);
+    for tau = 1:L
+        rhot(tau) = sum(abs(cBB(tau:1:end)).^2);
     end
 end
 
 function pn = find_rhon(cBB, Tb, n)
     sigma_s = var(cBB);
     CBB = fft(cBB);
-    pn = sigma_s^2/Tb*trapz(CBB.*delayseq(CBB, n/Tb)'.');
+    pn = sigma_s/Tb*trapz(CBB.*delayseq(CBB, n/Tb)'.');
 
     % CBB = fft(cBB);
     % pn = 0;
