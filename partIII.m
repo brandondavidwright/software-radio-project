@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF4.mat')
+load('xRF1.mat')
 
 %-----start of part 1-----
 
@@ -40,35 +40,11 @@ xBBd = decimator(xBBf,L); % baseband signal decimated at twice the symbol rate
 figure
 eye_pattern(xBBd);
 title("Eye pattern of xBBd")
-%----------------------------
-%---begin part 4.1-----------
-%----------------------------
-% estimate delta_fc with
-% pilot-aided carrier recovery (9.3)
-% find interval N1 to N2 after initial transient interval
-N1 = find_end_transience(xBBd, N*M);
-N2 = N1 + N*M -1;
-% find J
-J = findJ(xBBd, N1, N2, N, M);
-% estimate delta_fc
-Dfc_est = angle(J)/(2*pi*N*Tb); % equation 9.47
-t1 = (0:1:length(xBBd)-1)'*Tb;
-% adjust carrier frequency with estimate
-offset = exp(-1j*2*pi*Dfc_est*t1);
-xBBo = xBBd.*offset; % baseband signal adjusted for carrier offset
-
-figure
-eye_pattern(xBBo);
-title("eye pattern of xBBo");
-%----------------------------
-%---end part 4.1-------------
-%----------------------------
 %---start of part 2----------
 % equalize channel
 % determine autocorrelation to find beginning of pilot sequence
 
 abs_ryy = abs(autocorrelation(xBBd, M*N-1)); % N = 31
-abs_ryy_dec = expander(abs(autocorrelation(decimator(xBBd(1:end),M), N-1)),M);
 figure
 plot(abs_ryy)
 xlabel("n")
@@ -88,29 +64,10 @@ xBBe = fractionally_spaced_eq(xBBd, w, M*N); %equalized baseband siganl
 figure
 eye_pattern(xBBe);
 title("xBBe")
-%----------------------------
-%---part 2 to be continued---
-%----------------------------
-%---begin part 4.3-----------
-%----------------------------
-% estimate phase offset phi_c
-phic = esimate_phase_offset(xBBe);
 
-xBBp = xBBe*exp(-1j*phic); % phase-adjusted baseband signal
-
-figure
-eye_pattern(xBBp);
-title("Eye view of xBBp")
-
-%----------------------------
-%---end part 4.3-------------
-%----------------------------
-%---part 2 continues---------
-
-% find beginingg of payload
-payload_start = find_payload_start(xBBp, cp, M);
+payload_start = find_payload_start(xBBe, cp, M);
 %decimate payload by 2
-payload = decimator(xBBp(payload_start:end),2);
+payload = decimator(xBBe(payload_start:end),2);
 figure
 eye_pattern(payload);
 title("payload part of xBBe")

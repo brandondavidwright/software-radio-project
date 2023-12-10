@@ -1,8 +1,10 @@
 close all; clear;
 
-load('xRF4.mat')
+load('xRF8.mat')
 
-%-----start of part 1-----
+%----------------------------
+%---begin part 1-------------
+%----------------------------
 
 % examine spectrum of xRF
 figure
@@ -11,7 +13,9 @@ title("Received signal");
 
 % convert to baseband QAM signal
 t = (0:length(xRF)-1)'*Ts; %time of xRF
-xBB = 2*exp(-1j*2*pi*fc*t).*xRF; % desired baseband signal 
+N = length(cp);
+
+xBB = 2*exp(-1j*2*pi*fc*t).*xRF; % desired baseband signal
 
 % examine spectrum of unfiltered baseband
 figure
@@ -20,36 +24,48 @@ title("Unfiltered baseband signal");
 
 %filter out out-of-spectrum components
 pR=pT; % receiver filter
-xBBf = conv(xBB, pR);
-% construct preamble
-preamble = [cp; cp; cp; cp];
-N = length(cp);
+xBBf = conv(xBB, pR); % filtered baseband signal
 
-% examine spectrum of unfiltered baseband
 figure
 spec_analysis(xBBf,fs);
-title("Filtered baseband signal");
-
-% Decimate at twice the symbol rate
-M = 2;
-L = Tb/Ts/M; % decimation factor L
-xBBd = decimator(xBBf,L); % baseband signal decimated at twice the symbol rate
-% ***how do we vary timing phase? TODO***
+title("filtered baseband signal");
+% examine spectrum of filtered baseband
 
 % look at eye pattern
 figure
-eye_pattern(xBBd);
-title("Eye pattern of xBBd")
+eye_pattern(xBBf);
+title("eye pattern of xBBf")
+
+% non-data aided timing recovery (10.1)
+% sample the signal in timing phase that maximizes signal power
+% find Fourier series coeffients for rho(n)
+rho0 = find_rhon(xBBf, Tb, 0);
+rho1 = find_rhon(xBBf, Tb, 1);
+
+% find timing cost recovery function rho(t)
+t1 = (0:length(xBBf)-1)'*Ts;
+rhot = rho0 + 2*abs(rho1)*cos(2*pi/Tb*t1 + angle(rho1)); % 10.12
+
+%find max power of periodic rho(t)
+peak_indices = find(rhot==max(rhot));
+
+xBBd = xBBf(peak_indices); % decimated baseband signal 
+
+figure
+eye_pattern(xBBd)
+title("eye pattern of xBBd")
+%----------------------------
+%---part 1 to be continued---
 %----------------------------
 %---begin part 4.1-----------
 %----------------------------
 % estimate delta_fc with
 % pilot-aided carrier recovery (9.3)
 % find interval N1 to N2 after initial transient interval
-N1 = find_end_transience(xBBd, N*M);
-N2 = N1 + N*M -1;
+N1 = find_end_transience(xBBd, N);
+N2 = N1 + N - 1;
 % find J
-J = findJ(xBBd, N1, N2, N, M);
+J = findJ(xBBd, N1, N2, N);
 % estimate delta_fc
 Dfc_est = angle(J)/(2*pi*N*Tb); % equation 9.47
 t1 = (0:1:length(xBBd)-1)'*Tb;
@@ -60,34 +76,43 @@ xBBo = xBBd.*offset; % baseband signal adjusted for carrier offset
 figure
 eye_pattern(xBBo);
 title("eye pattern of xBBo");
+
 %----------------------------
 %---end part 4.1-------------
+%----------------------------
+%---part 1 continues---------
+%----------------------------
+
+% identify preamble and extract payload
+preamble = [cp; cp; cp; cp];
+N = length(cp);
+
+%----------------------------
+%---end of part 1------------
 %----------------------------
 %---start of part 2----------
 % equalize channel
 % determine autocorrelation to find beginning of pilot sequence
-
-abs_ryy = abs(autocorrelation(xBBd, M*N-1)); % N = 31
-abs_ryy_dec = expander(abs(autocorrelation(decimator(xBBd(1:end),M), N-1)),M);
+abs_ryy = abs(autocorrelation(xBBo, N-1)); % N = 31
 figure
 plot(abs_ryy)
 xlabel("n")
 ylabel("autocorrelation")
 title("Autocorrelation");
 
-% find peaks for fractionally-space equalizer
-ryy_maxima_indeces = find(islocalmax(abs_ryy)==1);
-ryy_max_index = find_autocorrelation_peak(abs_ryy, N, M);
-s = xBBd(ryy_max_index:ryy_max_index+M*N-1);
-% estimate tap weigths
-w = estimate_tap_weigths(s, cp, N, M);
-%center largest tap weight
-w = circshift(w, M*N/2 - find(w==max(w)));
-% equalize with fractionally-spaced equalizer
-xBBe = fractionally_spaced_eq(xBBd, w, M*N); %equalized baseband siganl
+% locate peak to find pilot sequence
+peak_index = find_starting_peak(abs_ryy, N);
+s = xBBo(peak_index:peak_index+N-1); % pilot
+% estimate tap weights for equalizer
+w = estimate_tap_weigths(s, cp, N);
+% put highest tap weight in center
+w = circshift(w, N/2 - find(w==max(w)));
+% equalize with symbol-spaced equalizer
+xBBe = symbol_spaced_equalizer(xBBo, w, N); % equalized baseband signal
+
 figure
 eye_pattern(xBBe);
-title("xBBe")
+title("xBBe");
 %----------------------------
 %---part 2 to be continued---
 %----------------------------
@@ -107,49 +132,45 @@ title("Eye view of xBBp")
 %----------------------------
 %---part 2 continues---------
 
-% find beginingg of payload
-payload_start = find_payload_start(xBBp, cp, M);
-%decimate payload by 2
-payload = decimator(xBBp(payload_start:end),2);
+% find begining of payload
+payload_start = find_payload_start(xBBp, cp);
+% extract payload
+payload_p2 = xBBp(payload_start:end);
+
 figure
-eye_pattern(payload);
-title("payload part of xBBe")
+eye_pattern(payload_p2);
+title("payload")
 
 % convert QAM siganl to bit array
-bits = QPSK2bits(payload); % data bits
+bits = QPSK2bits(payload_p2); % data bits
 
 % save bits to file
 bin2file(bits', "transmitted_file.txt");
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  Find start of preamble of signal y with pilot cp                %
+%  Determine Fourier series coeffient rho_n from signal cBB        %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function index = find_preamble_start(y, cp, M)
-    correlations = zeros(1,length(y));
-    for i = 1:1:length(y)
-        if i+M*length(cp)-1 < length(y)
-            correlations(i) = corr(real(y(i:M:i+M*length(cp)-1)), real(cp));
-        end
-    end
-
-    index = find(correlations==max(correlations));
+function pn = find_rhon(cBB, Tb, n)
+    sigma_s2 = var(cBB);
+    CBB = fft(cBB);
+    pn = sigma_s2/Tb*trapz(CBB.*delayseq(CBB, n/Tb)'.'); % Equation 10.7
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %  Find start of payload of signal y and pilot cp                  %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function index = find_payload_start(y, cp, M)
+function index = find_payload_start(y, cp)
     correlations = zeros(1,length(y));
     for i = 1:1:length(y)
-        if i+M*length(cp)-1 < length(y)
+        if i+length(cp)-1 < length(y)
             % find correlation of wind of signal y with pilot cp
-            correlations(i) = corr(real(y(i:M:i+M*length(cp)-1)), real(cp));
+            correlations(i) = corr(real(y(i:i+length(cp)-1)), real(cp));
         end
     end
     % Find beginning of last correlated pilot segment
     start_last_cp = find(correlations>0.9, 1, "last");
     % Find beginning of payload
-    index = start_last_cp+M*length(cp)-1;
+    index = start_last_cp+length(cp);
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -172,36 +193,18 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %  Estimate tap weights for equalizer from pilot s in segment y    %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function w = estimate_tap_weigths(y, s, N, M)
+function w = estimate_tap_weigths(y, s, N)
     yi = fliplr(y);
-    mu = 0.001; %lower mu due to non symbols in tap weight estimation
-    iterations = M*100000;
-    w = zeros(M*N,1);
+    mu = 0.001;
+    iterations = 100000;
+    w = zeros(32,1);
     
     % LMS adaptation algorithm ***TODO is this right?
-    for i = 0:iterations
-        ei = s(floor(mod(i, M*N)/M)+1) - w'*yi;
+    for i = 1:1:iterations
+        ei = s(mod(i, N)+1) - w'*yi;
         w = w + 2*mu*conj(ei)*yi;
         yi = circshift(yi,-1);
     end
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  Fractionally-spaced equalizer of signal y of order N            %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function s2 = fractionally_spaced_eq(y, w, N)
-    % add adaptation algorithm?  Like equalizerT2_NLMS.m',
-    overshoot = N-(mod(length(y),N)+1); %calculate this
-    %equalize signal based on tap weights
-    for n = 1:1:length(y)
-        if n + N-1 > length(y)
-            s2(n:length(y)) = w(1:mod(length(y),N)+overshoot)'*y(n:length(y));
-            overshoot = overshoot - 1;
-        else
-            s2(n:n+N-1) = w'*y(n:n+N-1);
-        end
-    end
-    s2 = reshape(s2,length(s2),1);
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -223,14 +226,12 @@ function s2 = symbol_spaced_equalizer(y, w, N)
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  Determine peak in autocorrelation of signal y                   %
+%  Find peak in autocorrelation to find segment corresponding to cp%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function peak_index = find_autocorrelation_peak(abs_ryy, N, M)
-    L = N*M;
-    before_payload = find(abs_ryy>0);
+function index = find_starting_peak(y, N)
+    before_payload = find(y>0);
     begin_preamble = before_payload(1)+1;
-    peak = max(abs_ryy(begin_preamble:begin_preamble+2*L+N));
-    peak_index = find(abs_ryy(1:begin_preamble+2*L+N)==peak);
+    index = find(y==max(y(begin_preamble:begin_preamble+2*N)));
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -255,10 +256,10 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %  Determine complex sum J of signal y for interval N1 to N2       %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function J = findJ(y, N1, N2, N, M)
+function J = findJ(y, N1, N2, N)
     J = 0;
     for n = N1:1:N2
-        J = J + y(n + M*N)*y(n)';
+        J = J + y(n + N)*y(n)';
     end
 end
 
@@ -269,7 +270,7 @@ end
 % --- TODO: cite this
 function index = find_end_transience(y, N)
     for i = 1:1:150
-        dev = abs(abs(y(i)) - abs(y(i+N)))/abs(y(i));
+        dev = abs(abs(y(i)) - abs(y(i+N)));
         if dev < 0.05 %got 0.02 value from link above, but 0.05 seems to work better for both test files
             break;
         end
