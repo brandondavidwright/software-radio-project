@@ -1,15 +1,15 @@
 close all; clear;
 
-load('xRF5ans.mat')
+load('xRF5.mat')
 
 %----------------------------
 %---begin part 1-------------
 %----------------------------
 
 % examine spectrum of xRF
-figure
-spec_analysis(xRF, fs)
-title("Received signal");
+% figure
+% spec_analysis(xRF, fs)
+% title("Received signal");
 
 % convert to baseband QAM signal
 t = (0:length(xRF)-1)'*Ts; %time of xRF
@@ -18,23 +18,18 @@ N = length(cp);
 xBB = 2*exp(-1j*2*pi*fc*t).*xRF; % desired baseband signal
 
 % examine spectrum of unfiltered baseband
-figure
-spec_analysis(xBB,fs);
-title("Unfiltered baseband signal");
+% figure
+% spec_analysis(xBB,fs);
+% title("Unfiltered baseband signal");
 
 %filter out out-of-spectrum components
 pR=pT; % receiver filter
 xBBf = conv(xBB, pR); % filtered baseband signal
 
-figure
-spec_analysis(xBBf,fs);
-title("filtered baseband signal");
+% figure
+% spec_analysis(xBBf,fs);
+% title("filtered baseband signal");
 % examine spectrum of filtered baseband
-
-% look at eye pattern
-figure
-eye_pattern(xBBf);
-title("eye pattern of xBBf")
 
 % non-data aided timing recovery (10.1)
 % sample the signal in timing phase that maximizes signal power
@@ -52,9 +47,9 @@ peak_indices = find(rhot==max(rhot));
 L = Tb/Ts;
 xBBd = xBBf(peak_indices); % decimated baseband signal %
 
-figure
-eye_pattern(xBBd)
-title("eye pattern of xBBd")
+% figure
+% eye_pattern(xBBd)
+% title("eye pattern of xBBd")
 
 % identify preamble and extract payload
 preamble = [cp; cp; cp; cp];
@@ -70,8 +65,8 @@ abs_ryy = abs(autocorrelation(xBBd, N-1)); % N = 31
 figure
 plot(abs_ryy)
 xlabel("n")
-ylabel("autocorrelation")
-title("Autocorrelation");
+ylabel("|r_y_y|")
+title("Part II - autocorrelation of xRF2");
 
 % locate peak to find pilot sequence
 peak_index = find_starting_peak(abs_ryy, N);
@@ -83,18 +78,23 @@ w = circshift(w, N/2 - find(w==max(w)));
 % equalize with symbol-spaced equalizer
 xBBe = symbol_spaced_equalizer(xBBd, w, N); % equalized baseband signal
 
-figure
-eye_pattern(xBBe);
-title("xBBe");
+% figure
+% eye_pattern(xBBe);
+% title("xBBe");
 
 % find begining of payload
 payload_start = find_payload_start(xBBe, cp);
 % extract payload
 payload_p2 = xBBe(payload_start:end);
 
+% look at eye pattern
 figure
+subplot(1,2,1)
+eye_pattern(xBBf);
+title("Part II - eye pattern of filtered baseband for xRF5")
+subplot(1,2,2)
 eye_pattern(payload_p2);
-title("payload")
+title("Part II - eye pattern of payload of xRF5")
 
 % convert QAM siganl to bit array
 bits = QPSK2bits(payload_p2); % data bits

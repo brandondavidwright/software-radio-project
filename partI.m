@@ -7,9 +7,9 @@ load('xRF1.mat')
 %----------------------------
 
 % examine spectrum of xRF
-figure
-spec_analysis(xRF, fs)
-title("Received signal");
+% figure
+% spec_analysis(xRF, fs)
+% title("Received signal");
 
 % convert to baseband QAM signal
 t = (0:length(xRF)-1)'*Ts; %time of xRF
@@ -19,29 +19,26 @@ xBB = 2*exp(-1j*2*pi*fc*t).*xRF; % desired baseband signal
 
 % examine spectrum of unfiltered baseband
 figure
+subplot(1,4,1)
 spec_analysis(xBB,fs);
-title("Unfiltered baseband signal");
+title("Part I - unfiltered baseband signal xBB");
 
 %filter out out-of-spectrum components
 pR=pT; % receiver filter
 xBBf = conv(xBB, pR); % filtered baseband signal
 
-figure
+subplot(1,4,2)
 spec_analysis(xBBf,fs);
-title("filtered baseband signal");
+title("Part I - filtered baseband signal xBBf");
 % examine spectrum of filtered baseband
 
 % look at eye pattern
-figure
+subplot(1,4,3)
 eye_pattern(xBBf);
-title("eye pattern of xBBf")
+title("Part I - eye pattern of xBBf")
 
 % non-data aided timing recovery (10.1)
 % sample the signal in timing phase that maximizes signal power
-% find Fourier series coeffients for rho(n)
-rho0 = find_rhon(xBBf, Tb, 0);
-rho1 = find_rhon(xBBf, Tb, 1);
-
 % find max of rhot for sample locations for decimation
 L = Tb/Ts;
 rhot = find_rhot(xBBf, L);
@@ -49,9 +46,9 @@ rhot = find_rhot(xBBf, L);
 peak_index = indices(1);
 xBBd = xBBf(peak_index:L:end); % decimated baseband signal
 
-figure
-eye_pattern(xBBd)
-title("eye pattern of xBBd")
+% figure
+% eye_pattern(xBBd)
+% title("eye pattern of xBBd")
 
 % identify preamble and extract payload
 preamble = [cp; cp; cp; cp];
@@ -59,8 +56,9 @@ N = length(cp);
 payload_start = find_payload_start(xBBd, cp);
 
 payload = xBBd(payload_start:end);
-figure
+subplot(1,4,4)
 eye_pattern(payload)
+title("Part I - eye pattern of payload")
 
 % convert QAM siganl to bit array
 bits = QPSK2bits(payload); % data bits

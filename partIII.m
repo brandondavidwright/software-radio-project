@@ -1,6 +1,6 @@
 close all; clear;
 
-load('xRF1.mat')
+load('xRF5.mat')
 
 %-----start of part 1-----
 
@@ -14,9 +14,9 @@ t = (0:length(xRF)-1)'*Ts; %time of xRF
 xBB = 2*exp(-1j*2*pi*fc*t).*xRF; % desired baseband signal 
 
 % examine spectrum of unfiltered baseband
-figure
-spec_analysis(xBB,fs);
-title("Unfiltered baseband signal");
+% figure
+% spec_analysis(xBB,fs);
+% title("Unfiltered baseband signal");
 
 %filter out out-of-spectrum components
 pR=pT; % receiver filter
@@ -26,9 +26,9 @@ preamble = [cp; cp; cp; cp];
 N = length(cp);
 
 % examine spectrum of unfiltered baseband
-figure
-spec_analysis(xBBf,fs);
-title("Filtered baseband signal");
+% figure
+% spec_analysis(xBBf,fs);
+% title("Filtered baseband signal");
 
 % Decimate at twice the symbol rate
 M = 2;
@@ -37,9 +37,9 @@ xBBd = decimator(xBBf,L); % baseband signal decimated at twice the symbol rate
 % ***how do we vary timing phase? TODO***
 
 % look at eye pattern
-figure
-eye_pattern(xBBd);
-title("Eye pattern of xBBd")
+% figure
+% eye_pattern(xBBd);
+% title("Eye pattern of xBBd")
 %---start of part 2----------
 % equalize channel
 % determine autocorrelation to find beginning of pilot sequence
@@ -69,8 +69,12 @@ payload_start = find_payload_start(xBBe, cp, M);
 %decimate payload by 2
 payload = decimator(xBBe(payload_start:end),2);
 figure
+subplot(1,2,1)
+eye_pattern(xBBf)
+title("Part III - filtered baseband signal of xRF5")
+subplot(1,2,2)
 eye_pattern(payload);
-title("payload part of xBBe")
+title("Part III - payload of xRF5")
 
 % convert QAM siganl to bit array
 bits = QPSK2bits(payload); % data bits
@@ -147,7 +151,6 @@ end
 %  Fractionally-spaced equalizer of signal y of order N            %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function s2 = fractionally_spaced_eq(y, w, N)
-    % add adaptation algorithm?  Like equalizerT2_NLMS.m',
     overshoot = N-(mod(length(y),N)+1); %calculate this
     %equalize signal based on tap weights
     for n = 1:1:length(y)

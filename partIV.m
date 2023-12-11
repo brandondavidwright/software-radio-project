@@ -7,9 +7,9 @@ load('xRF8.mat')
 %----------------------------
 
 % examine spectrum of xRF
-figure
-spec_analysis(xRF, fs)
-title("Received signal");
+% figure
+% spec_analysis(xRF, fs)
+% title("Received signal");
 
 % convert to baseband QAM signal
 t = (0:length(xRF)-1)'*Ts; %time of xRF
@@ -18,23 +18,19 @@ N = length(cp);
 xBB = 2*exp(-1j*2*pi*fc*t).*xRF; % desired baseband signal
 
 % examine spectrum of unfiltered baseband
-figure
-spec_analysis(xBB,fs);
-title("Unfiltered baseband signal");
+% figure
+% spec_analysis(xBB,fs);
+% title("Unfiltered baseband signal");
 
 %filter out out-of-spectrum components
 pR=pT; % receiver filter
 xBBf = conv(xBB, pR); % filtered baseband signal
 
-figure
-spec_analysis(xBBf,fs);
-title("filtered baseband signal");
+% figure
+% spec_analysis(xBBf,fs);
+% title("filtered baseband signal");
 % examine spectrum of filtered baseband
 
-% look at eye pattern
-figure
-eye_pattern(xBBf);
-title("eye pattern of xBBf")
 
 % non-data aided timing recovery (10.1)
 % sample the signal in timing phase that maximizes signal power
@@ -135,14 +131,19 @@ title("Eye view of xBBp")
 % find begining of payload
 payload_start = find_payload_start(xBBp, cp);
 % extract payload
-payload_p2 = xBBp(payload_start:end);
+payload = xBBp(payload_start:end);
 
+% look at eye pattern
 figure
-eye_pattern(payload_p2);
-title("payload")
+subplot(1,2,1)
+eye_pattern(xBBf);
+title("Part IV - filtered baseband of xRF8")
+subplot(1,2,2)
+eye_pattern(payload);
+title("Part IV - payload of xRF8")
 
 % convert QAM siganl to bit array
-bits = QPSK2bits(payload_p2); % data bits
+bits = QPSK2bits(payload); % data bits
 
 % save bits to file
 bin2file(bits', "transmitted_file.txt");

@@ -7,9 +7,9 @@ load('xRF9.mat')
 %----------------------------
 
 % examine spectrum of xRF
-figure
-spec_analysis(xRF, fs)
-title("Received signal");
+% figure
+% spec_analysis(xRF, fs)
+% title("Received signal");
 
 % convert to baseband QAM signal
 t = (0:length(xRF)-1)'*Ts; %time of xRF
@@ -18,23 +18,18 @@ N = length(cp);
 xBB = 2*exp(-1j*2*pi*fc*t).*xRF; % desired baseband signal
 
 % examine spectrum of unfiltered baseband
-figure
-spec_analysis(xBB,fs);
-title("Unfiltered baseband signal");
+% figure
+% spec_analysis(xBB,fs);
+% title("Unfiltered baseband signal");
 
 %filter out out-of-spectrum components
 pR=pT; % receiver filter
 xBBf = conv(xBB, pR);
 
-figure
-spec_analysis(xBBf,fs);
-title("filtered baseband signal");
+% figure
+% spec_analysis(xBBf,fs);
+% title("filtered baseband signal");
 % examine spectrum of unfiltered baseband
-
-% look at eye pattern
-figure
-eye_pattern(xBBf);
-title("eye pattern of cBB")
 
 %----------------------------
 %---part 1 to be continued---
@@ -64,9 +59,15 @@ preamble = [cp; cp; cp; cp];
 payload_start = find_payload_start(xBBd, cp);
 
 payload = xBBd(payload_start:end);
-figure
+
+% look at eye pattern
+figure 
+subplot(1,2,1)
+eye_pattern(xBBf);
+title("Part V - eye pattern baseband xRF9")
+subplot(1,2,2)
 eye_pattern(payload)
-title("eye pattern of payload")
+title("Part V - eye pattern of payload of xRF9")
 
 bits = QPSK2bits(payload);
 
