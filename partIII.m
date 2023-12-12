@@ -139,7 +139,7 @@ function w = estimate_tap_weigths(y, s, N, M)
     iterations = M*100000;
     w = zeros(M*N,1);
     
-    % LMS adaptation algorithm ***TODO is this right?
+    % NLMS adaptation algorithm ***TODO is this right?
     for i = 0:iterations
         ei = s(floor(mod(i, M*N)/M)+1) - w'*yi;
         w = w + 2*mu*conj(ei)*yi;
