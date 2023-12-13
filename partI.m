@@ -6,11 +6,6 @@ load('xRF1.mat')
 %---begin part 1-------------
 %----------------------------
 
-% examine spectrum of xRF
-% figure
-% spec_analysis(xRF, fs)
-% title("Received signal");
-
 % convert to baseband QAM signal
 t = (0:length(xRF)-1)'*Ts; %time of xRF
 N = length(cp);
@@ -46,13 +41,8 @@ rhot = find_rhot(xBBf, L);
 peak_index = indices(1);
 xBBd = xBBf(peak_index:L:end); % decimated baseband signal
 
-% figure
-% eye_pattern(xBBd)
-% title("eye pattern of xBBd")
-
 % identify preamble and extract payload
 preamble = [cp; cp; cp; cp];
-N = length(cp);
 payload_start = find_payload_start(xBBd, cp);
 
 payload = xBBd(payload_start:end);

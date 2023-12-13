@@ -6,31 +6,15 @@ load('xRF8.mat')
 %---begin part 1-------------
 %----------------------------
 
-% examine spectrum of xRF
-% figure
-% spec_analysis(xRF, fs)
-% title("Received signal");
-
 % convert to baseband QAM signal
 t = (0:length(xRF)-1)'*Ts; %time of xRF
 N = length(cp);
 
 xBB = 2*exp(-1j*2*pi*fc*t).*xRF; % desired baseband signal
 
-% examine spectrum of unfiltered baseband
-% figure
-% spec_analysis(xBB,fs);
-% title("Unfiltered baseband signal");
-
 %filter out out-of-spectrum components
 pR=pT; % receiver filter
 xBBf = conv(xBB, pR); % filtered baseband signal
-
-% figure
-% spec_analysis(xBBf,fs);
-% title("filtered baseband signal");
-% examine spectrum of filtered baseband
-
 
 % non-data aided timing recovery (10.1)
 % sample the signal in timing phase that maximizes signal power
@@ -106,9 +90,6 @@ w = circshift(w, N/2 - find(w==max(w)));
 % equalize with symbol-spaced equalizer
 xBBe = symbol_spaced_equalizer(xBBo, w, N); % equalized baseband signal
 
-figure
-eye_pattern(xBBe);
-title("xBBe");
 %----------------------------
 %---part 2 to be continued---
 %----------------------------
@@ -118,10 +99,6 @@ title("xBBe");
 phic = esimate_phase_offset(xBBe);
 
 xBBp = xBBe*exp(-1j*phic); % phase-adjusted baseband signal
-
-figure
-eye_pattern(xBBp);
-title("Eye view of xBBp")
 
 %----------------------------
 %---end part 4.3-------------
@@ -200,7 +177,7 @@ function w = estimate_tap_weigths(y, s, N)
     iterations = 100000;
     w = zeros(32,1);
     
-    % NLMS adaptation algorithm ***TODO is this right?
+    % LMS adaptation algorithm ***TODO is this right?
     for i = 1:1:iterations
         ei = s(mod(i, N)+1) - w'*yi;
         w = w + 2*mu*conj(ei)*yi;
@@ -267,12 +244,10 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %  Find end of transicence in signal y with period N               %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% --- https://www.mathworks.com/matlabcentral/fileexchange/68486-transient-time-measurement-with-matlab-implementation
-% --- TODO: cite this
 function index = find_end_transience(y, N)
     for i = 1:1:150
         dev = abs(abs(y(i)) - abs(y(i+N)));
-        if dev < 0.05 %got 0.02 value from link above, but 0.05 seems to work better for both test files
+        if dev < 0.05
             break;
         end
     end

@@ -1,6 +1,6 @@
-close all; clear;
+close all;
 
-load('xRF5.mat')
+load('xRF4.mat')
 
 %-----start of part 1-----
 
@@ -13,11 +13,6 @@ title("Received signal");
 t = (0:length(xRF)-1)'*Ts; %time of xRF
 xBB = 2*exp(-1j*2*pi*fc*t).*xRF; % desired baseband signal 
 
-% examine spectrum of unfiltered baseband
-% figure
-% spec_analysis(xBB,fs);
-% title("Unfiltered baseband signal");
-
 %filter out out-of-spectrum components
 pR=pT; % receiver filter
 xBBf = conv(xBB, pR);
@@ -25,24 +20,13 @@ xBBf = conv(xBB, pR);
 preamble = [cp; cp; cp; cp];
 N = length(cp);
 
-% examine spectrum of unfiltered baseband
-% figure
-% spec_analysis(xBBf,fs);
-% title("Filtered baseband signal");
+% Allow for variable timing phase
+timing_phase_start = 23;
 
 % Decimate at twice the symbol rate
 M = 2;
 L = Tb/Ts/M; % decimation factor L
-xBBd = decimator(xBBf,L); % baseband signal decimated at twice the symbol rate
-% ***how do we vary timing phase? TODO***
-
-% look at eye pattern
-% figure
-% eye_pattern(xBBd);
-% title("Eye pattern of xBBd")
-%---start of part 2----------
-% equalize channel
-% determine autocorrelation to find beginning of pilot sequence
+xBBd = decimator(xBBf(timing_phase_start:end),L); % baseband signal decimated at twice the symbol rate
 
 abs_ryy = abs(autocorrelation(xBBd, M*N-1)); % N = 31
 figure
@@ -56,7 +40,7 @@ ryy_maxima_indeces = find(islocalmax(abs_ryy)==1);
 ryy_max_index = find_autocorrelation_peak(abs_ryy, N, M);
 s = xBBd(ryy_max_index:ryy_max_index+M*N-1);
 % estimate tap weigths
-w = estimate_tap_weigths(s, cp, N, M);
+[w, mse] = estimate_tap_weigths(s, cp, N, M);
 %center largest tap weight
 w = circshift(w, M*N/2 - find(w==max(w)));
 % equalize with fractionally-spaced equalizer
@@ -133,15 +117,16 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %  Estimate tap weights for equalizer from pilot s in segment y    %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function w = estimate_tap_weigths(y, s, N, M)
+function [w, e] = estimate_tap_weigths(y, s, N, M)
     yi = fliplr(y);
     mu = 0.001; %lower mu due to non symbols in tap weight estimation
     iterations = M*100000;
     w = zeros(M*N,1);
-    
-    % NLMS adaptation algorithm ***TODO is this right?
+    e = zeros(iterations+1,1);
+    % NLMS adaptation algorithm
     for i = 0:iterations
         ei = s(floor(mod(i, M*N)/M)+1) - w'*yi;
+        e(i+1) = ei;
         w = w + 2*mu*conj(ei)*yi;
         yi = circshift(yi,-1);
     end
@@ -151,30 +136,12 @@ end
 %  Fractionally-spaced equalizer of signal y of order N            %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function s2 = fractionally_spaced_eq(y, w, N)
-    overshoot = N-(mod(length(y),N)+1); %calculate this
+    overshoot = N-(mod(length(y),N)+1);
     %equalize signal based on tap weights
     for n = 1:1:length(y)
         if n + N-1 > length(y)
             s2(n:length(y)) = w(1:mod(length(y),N)+overshoot)'*y(n:length(y));
             overshoot = overshoot - 1;
-        else
-            s2(n:n+N-1) = w'*y(n:n+N-1);
-        end
-    end
-    s2 = reshape(s2,length(s2),1);
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  Sybmol-spaced equalizer of signal y with tap weights w           %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function s2 = symbol_spaced_equalizer(y, w, N)
-    % find remainder of length of y % N
-    remainder = N-(mod(length(y),N)+1);
-    %equalize signal based on tap weights
-    for n = 1:1:length(y)
-        if n + N-1 > length(y)
-            s2(n:length(y)) = w(1:mod(length(y),N)+remainder)'*y(n:length(y));
-            remainder = remainder - 1;
         else
             s2(n:n+N-1) = w'*y(n:n+N-1);
         end
@@ -191,50 +158,6 @@ function peak_index = find_autocorrelation_peak(abs_ryy, N, M)
     begin_preamble = before_payload(1)+1;
     peak = max(abs_ryy(begin_preamble:begin_preamble+2*L+N));
     peak_index = find(abs_ryy(1:begin_preamble+2*L+N)==peak);
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  Estimate phase offset phic of signal y                          %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function phic = esimate_phase_offset(y)
-    phi = zeros(size(y));
-    s1 = zeros(size(y));
-    mu = 0.001;
-
-    % decision-directed phase recovery loop
-    for n = 1:1:length(y)-1
-        s1(n) = y(n)*exp(-1j*phi(n));
-        s2 = sign(real(s1(n)))+1j*sign(imag(s1(n))); % slicer
-        s12=s1(n)*s2';
-        e = imag(s12)/real(s12);  % Equation 9.50
-        phi(n+1) = phi(n) + mu*e;
-    end
-    phic = phi(end);
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  Determine complex sum J of signal y for interval N1 to N2       %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function J = findJ(y, N1, N2, N, M)
-    J = 0;
-    for n = N1:1:N2
-        J = J + y(n + M*N)*y(n)';
-    end
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  Find end of transicence in signal y with period N               %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% --- https://www.mathworks.com/matlabcentral/fileexchange/68486-transient-time-measurement-with-matlab-implementation
-% --- TODO: cite this
-function index = find_end_transience(y, N)
-    for i = 1:1:150
-        dev = abs(abs(y(i)) - abs(y(i+N)))/abs(y(i));
-        if dev < 0.05 %got 0.02 value from link above, but 0.05 seems to work better for both test files
-            break;
-        end
-    end
-    index = i;
 end
 
 function eye_pattern(y)
